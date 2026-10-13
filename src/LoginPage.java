@@ -168,9 +168,8 @@ public class LoginPage extends javax.swing.JFrame {
 
         if (rs.next()) {
 
-            JOptionPane.showMessageDialog(this,
-                    "Login Successful!");
-
+            UserDashboard u = new UserDashboard();
+            u.show();
             // Dashboard open karne ke liye baad me yahan code lagayenge
 
         } else {
