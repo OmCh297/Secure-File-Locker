@@ -133,60 +133,85 @@ public class LoginPage extends javax.swing.JFrame {
     }//GEN-LAST:event_jLabel6MouseClicked
 
     private void jButton1ActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_jButton1ActionPerformed
-        // TODO add your handling code here:
+        // TODO add your handling code here
+
     String usernameEmail = LEmail.getText().trim();
     String password = new String(LPassword.getPassword());
 
     if (usernameEmail.isEmpty() || password.isEmpty()) {
-        JOptionPane.showMessageDialog(this,
-                "Please enter username/email and password.");
+        JOptionPane.showMessageDialog(
+                this,
+                "Please enter username/email and password."
+        );
         return;
     }
 
-    try {
-        // Database connection
-        Class.forName("com.mysql.cj.jdbc.Driver");
+    String url =
+            "jdbc:mysql://localhost:3307/secure_file_locker_db";
 
-        Connection con = DriverManager.getConnection(
-                "jdbc:mysql://localhost:3307/secure_file_locker_db",
-                "root",
-                "1234"
-        );
+    String sql = "SELECT user_id, full_name FROM users "
+            + "WHERE (username = ? OR email = ?) "
+            + "AND password = ? AND status = 'ACTIVE'";
 
-        // Login query
-        String sql = "SELECT * FROM users "
-                   + "WHERE (username = ? OR email = ?) "
-                   + "AND password = ?";
-
-        PreparedStatement pst = con.prepareStatement(sql);
+    try (Connection con = DriverManager.getConnection(
+                url, "root", "1234");
+         PreparedStatement pst = con.prepareStatement(sql)) {
 
         pst.setString(1, usernameEmail);
         pst.setString(2, usernameEmail);
         pst.setString(3, password);
 
-        ResultSet rs = pst.executeQuery();
+        try (ResultSet rs = pst.executeQuery()) {
 
-        if (rs.next()) {
+            if (rs.next()) {
 
-            UserDashboard u = new UserDashboard();
-            u.show();
-            // Dashboard open karne ke liye baad me yahan code lagayenge
+                int loggedInUserId = rs.getInt("user_id");
+                String loggedInName = rs.getString("full_name");
 
-        } else {
+                // Save logged-in user's details in session.
+                session.Session.setUserId(loggedInUserId);
+                session.Session.setFullName(loggedInName);
 
-            JOptionPane.showMessageDialog(this,
-                    "Invalid username/email or password.");
+                // Update login statistics.
+                String updateSql =
+                        "UPDATE users SET "
+                        + "login_count = COALESCE(login_count, 0) + 1, "
+                        + "last_login = NOW() "
+                        + "WHERE user_id = ?";
+
+                try (PreparedStatement updatePst =
+                             con.prepareStatement(updateSql)) {
+
+                    updatePst.setInt(1, loggedInUserId);
+                    updatePst.executeUpdate();
+                }
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Login successful! Welcome, " + loggedInName
+                );
+
+                UserDashboard dashboard = new UserDashboard();
+                dashboard.setVisible(true);
+                this.dispose();
+
+            } else {
+                JOptionPane.showMessageDialog(
+                        this,
+                        "Invalid credentials or inactive account."
+                );
+            }
         }
 
-        rs.close();
-        pst.close();
-        con.close();
-
-    } catch (Exception e) {
-
-        JOptionPane.showMessageDialog(this,
-                "Error: " + e.getMessage());
+    } catch (SQLException e) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Login error: " + e.getMessage(),
+                "Database Error",
+                JOptionPane.ERROR_MESSAGE
+        );
     }
+
 
     }//GEN-LAST:event_jButton1ActionPerformed
 
