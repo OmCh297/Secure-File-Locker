@@ -2,19 +2,40 @@
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
+import dao.FileDAO;
+import service.EncryptionService;
 
+import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.security.MessageDigest;
+import java.util.HexFormat;
+import javax.swing.table.DefaultTableModel;
 /**
  *
  * @author DELL
  */
-public class UserDashboard extends javax.swing.JFrame {
 
-    /**
-     * Creates new form UserDashboard
-     */
-    public UserDashboard() {
-        initComponents();
-    }
+
+
+public class UserDashboard extends javax.swing.JFrame {
+    
+    private int currentUserId;
+
+public UserDashboard(int userId) {
+   
+    initComponents();
+
+    this.currentUserId = userId;
+
+    lblWelcome.setText(
+        "Welcome " + session.Session.getFullName()
+    );
+    loadFiles();
+
+}
 
     /**
      * This method is called from within the constructor to initialize the form.
@@ -367,23 +388,186 @@ public class UserDashboard extends javax.swing.JFrame {
         // TODO add your handling code here:
     }//GEN-LAST:event_btnDeleteActionPerformed
 
+private void loadFiles() {
+    DefaultTableModel model = new DefaultTableModel(
+        new String[]{
+            "File ID",
+            "File Name",
+            "Type",
+            "Size (Bytes)",
+            "Upload Date"
+        },
+        0
+    ) {
+        @Override
+        public boolean isCellEditable(int row, int column) {
+            return false;
+        }
+    };
+
+    try {
+        FileDAO fileDAO = new FileDAO();
+
+        java.util.List<Object[]> files =
+                fileDAO.getFileRowsByUserId(currentUserId);
+
+        for (Object[] file : files) {
+            model.addRow(file);
+        }
+
+        tblFiles.setModel(model);
+
+        lblTotalFiles.setText(String.valueOf(files.size()));
+        lblEncrypted.setText(String.valueOf(files.size()));
+
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(
+            this,
+            "Unable to load files: " + ex.getMessage(),
+            "Database Error",
+            JOptionPane.ERROR_MESSAGE
+        );
+
+        ex.printStackTrace();
+    }
+}
+
     private void btnUploadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnUploadActionPerformed
         // TODO add your handling code here:
-        javax.swing.JFileChooser fileChooser =
-            new javax.swing.JFileChooser();
-
-    int result = fileChooser.showOpenDialog(this);
-
-    if (result == javax.swing.JFileChooser.APPROVE_OPTION) {
-
-        java.io.File selectedFile =
-                fileChooser.getSelectedFile();
-
-        javax.swing.JOptionPane.showMessageDialog(
-                this,
-                "Selected File: " + selectedFile.getName()
+    // Step 1: Check logged-in user
+    if (currentUserId <= 0) {
+        JOptionPane.showMessageDialog(
+            this,
+            "User session not found. Please login again.",
+            "Login Required",
+            JOptionPane.WARNING_MESSAGE
         );
+        return;
     }
+
+    JFileChooser chooser = new JFileChooser();
+    chooser.setDialogTitle("Select File to Secure");
+
+    int result = chooser.showOpenDialog(this);
+
+    if (result != JFileChooser.APPROVE_OPTION) {
+        return;
+    }
+
+    File selectedFile = chooser.getSelectedFile();
+
+    Path encryptedPath = null;
+
+    try {
+        // Step 2: Encrypt selected file
+        EncryptionService encryptionService =
+                new EncryptionService();
+
+        encryptedPath =
+                encryptionService.encryptFile(selectedFile);
+
+        if (encryptedPath == null
+                || !Files.isRegularFile(encryptedPath)
+                || Files.size(encryptedPath) == 0) {
+
+            throw new Exception(
+                "Encrypted file was not saved correctly."
+            );
+        }
+
+        // Step 3: Read generated IV
+        byte[] iv = encryptionService.getLastGeneratedIV();
+
+        if (iv == null || iv.length != 12) {
+            throw new Exception(
+                "Encryption IV is missing or invalid."
+            );
+        }
+
+        // Step 4: Calculate SHA-256 hash of encrypted file
+        MessageDigest digest =
+                MessageDigest.getInstance("SHA-256");
+
+        String fileHash;
+
+        try (var inputStream =
+                Files.newInputStream(encryptedPath)) {
+
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, bytesRead);
+            }
+
+            fileHash = HexFormat.of().formatHex(
+                    digest.digest()
+            );
+        }
+
+        // Step 5: Prepare file information
+        String fileName = selectedFile.getName();
+
+        String fileType = "Unknown";
+        int dotIndex = fileName.lastIndexOf('.');
+
+        if (dotIndex >= 0 && dotIndex < fileName.length() - 1) {
+            fileType = fileName.substring(dotIndex + 1);
+        }
+
+        long fileSize = Files.size(selectedFile.toPath());
+
+        String filePath = encryptedPath.toAbsolutePath().toString();
+
+        // Step 6: Save metadata in MySQL
+        FileDAO fileDAO = new FileDAO();
+
+        
+boolean saved = fileDAO.saveFile(
+    currentUserId,
+    fileName,
+    fileType,
+    fileSize,
+    filePath,
+    "AES-256-GCM",
+    iv,
+    "LOCAL_MASTER_KEY",
+    fileHash
+);
+
+if (!saved) {
+    JOptionPane.showMessageDialog(
+        this,
+        "File encrypted, but database save failed. "
+        + "Please check the database connection.",
+        "Upload Warning",
+        JOptionPane.WARNING_MESSAGE
+    );
+    return;
+}
+
+
+        // Step 7: Show success message
+        JOptionPane.showMessageDialog(
+            this,
+            "File encrypted and uploaded successfully!",
+            "Upload Successful",
+            JOptionPane.INFORMATION_MESSAGE
+        );
+
+        loadFiles();
+
+    } catch (Exception ex) {
+        JOptionPane.showMessageDialog(
+            this,
+            "Upload failed: " + ex.getMessage(),
+            "Upload Error",
+            JOptionPane.ERROR_MESSAGE
+        );
+
+        ex.printStackTrace();
+    }
+
     }//GEN-LAST:event_btnUploadActionPerformed
 
     /**
@@ -414,11 +598,16 @@ public class UserDashboard extends javax.swing.JFrame {
         //</editor-fold>
 
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(new Runnable() {
-            public void run() {
-                new UserDashboard().setVisible(true);
-            }
-        });
+      
+
+    java.awt.EventQueue.invokeLater(new Runnable() {
+        public void run() {
+            new LoginPage().setVisible(true);
+        }
+    });
+
+
+
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables

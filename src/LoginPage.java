@@ -191,9 +191,13 @@ public class LoginPage extends javax.swing.JFrame {
                         "Login successful! Welcome, " + loggedInName
                 );
 
-                UserDashboard dashboard = new UserDashboard();
-                dashboard.setVisible(true);
-                this.dispose();
+               
+                UserDashboard dashboard =
+                 new UserDashboard(loggedInUserId);
+
+                 dashboard.setVisible(true);
+                 this.dispose();
+
 
             } else {
                 JOptionPane.showMessageDialog(

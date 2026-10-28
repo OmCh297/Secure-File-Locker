@@ -152,4 +152,41 @@ public class FileDAO {
                     + e.getMessage());
         }
     }
+    
+    // Fetch file details for UserDashboard JTable
+    public java.util.List<Object[]> getFileRowsByUserId(int userId)
+            throws SQLException {
+
+        java.util.List<Object[]> fileList =
+                new java.util.ArrayList<>();
+
+        String sql = "SELECT file_id, file_name, file_type, "
+                + "file_size, uploaded_at "
+                + "FROM files WHERE user_id = ? "
+                + "ORDER BY uploaded_at DESC";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+
+                    Object[] row = {
+                        rs.getInt("file_id"),
+                        rs.getString("file_name"),
+                        rs.getString("file_type"),
+                        rs.getLong("file_size"),
+                        rs.getTimestamp("uploaded_at")
+                    };
+
+                    fileList.add(row);
+                }
+            }
+        }
+
+        return fileList;
+    }
+
 }
