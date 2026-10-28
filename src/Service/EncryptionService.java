@@ -123,6 +123,88 @@ public class EncryptionService {
             Files.deleteIfExists(tempFile);
         }
     }
+     
+public static Path decryptFile(
+        Path encryptedFile,
+        Path outputFile,
+        byte[] iv
+) throws Exception {
+
+    if (encryptedFile == null
+            || !Files.isRegularFile(encryptedFile)
+            || !Files.isReadable(encryptedFile)) {
+        throw new IOException("Encrypted file cannot be read.");
+    }
+
+    if (outputFile == null || iv == null || iv.length != IV_LENGTH) {
+        throw new IllegalArgumentException("Invalid output path or IV.");
+    }
+
+    if (Files.exists(outputFile)) {
+        throw new IOException(
+                "Output file already exists. Choose another name."
+        );
+    }
+
+    Path outputDirectory = outputFile.toAbsolutePath().getParent();
+
+    if (outputDirectory == null) {
+        throw new IOException("Invalid output directory.");
+    }
+
+    Files.createDirectories(outputDirectory);
+
+    SecretKey key = KeyService.getSecretKey();
+
+    Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+
+    cipher.init(
+            Cipher.DECRYPT_MODE,
+            key,
+            new GCMParameterSpec(TAG_LENGTH, iv)
+    );
+
+    Path tempFile = Files.createTempFile(
+            outputDirectory, "decrypt_", ".tmp"
+    );
+
+    try {
+        try (
+            java.io.InputStream in = Files.newInputStream(encryptedFile);
+            java.io.OutputStream out = Files.newOutputStream(tempFile)
+        ) {
+            byte[] buffer = new byte[8192];
+            int bytesRead;
+
+            while ((bytesRead = in.read(buffer)) != -1) {
+                byte[] decryptedChunk = cipher.update(
+                        buffer, 0, bytesRead
+                );
+
+                if (decryptedChunk != null
+                        && decryptedChunk.length > 0) {
+                    out.write(decryptedChunk);
+                }
+            }
+
+            // GCM authentication is verified here.
+            // Wrong key, IV, or modified data causes failure.
+            byte[] finalChunk = cipher.doFinal();
+
+            if (finalChunk.length > 0) {
+                out.write(finalChunk);
+            }
+        }
+
+        // Publish the recovered file only after verification succeeds.
+        Files.move(tempFile, outputFile);
+
+        return outputFile;
+
+    } finally {
+        Files.deleteIfExists(tempFile);
+    }
+}
 
     // Return a copy of the latest IV for later database integration.
     public static byte[] getLastGeneratedIV() {
