@@ -707,6 +707,36 @@ if (!saved) {
     return;
 }
 
+// Step 7: Delete original file after successful upload
+boolean originalDeleted = false;
+
+try {
+    Path originalPath = selectedFile.toPath()
+            .toAbsolutePath().normalize();
+
+    Path encryptedAbsolutePath = encryptedPath
+            .toAbsolutePath().normalize();
+
+    // Safety check
+    if (originalPath.equals(encryptedAbsolutePath)) {
+        throw new Exception("Original and encrypted paths are same!");
+    }
+
+    Files.delete(originalPath);
+
+    originalDeleted = true;
+
+    System.out.println(
+            "Original file deleted successfully!"
+    );
+
+} catch (Exception deleteError) {
+
+    System.out.println(
+            "Original file deletion failed: "
+            + deleteError.getMessage()
+    );
+}
 
         // Step 7: Show success message
         JOptionPane.showMessageDialog(
