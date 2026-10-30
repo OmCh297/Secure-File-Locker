@@ -248,6 +248,113 @@ public class FileDAO {
             return iv == null ? null : iv.clone();
         }
     }
+    
+    
+        // Fetch file details before deletion
+    public FileDeleteData getFileForDeletion(
+            int fileId, int userId) throws SQLException {
+
+        String sql = "SELECT file_name, file_path "
+                + "FROM files WHERE file_id = ? AND user_id = ?";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, fileId);
+            ps.setInt(2, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return new FileDeleteData(
+                            rs.getString("file_name"),
+                            rs.getString("file_path")
+                    );
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Save deletion history and remove active database record
+    public boolean moveFileToDeleteHistory(
+            int fileId, int userId) throws SQLException {
+
+        String insertSql =
+                "INSERT INTO deleted_files "
+                + "(original_file_id, user_id, file_name, "
+                + "file_type, file_size) "
+                + "SELECT file_id, user_id, file_name, "
+                + "file_type, file_size "
+                + "FROM files WHERE file_id = ? AND user_id = ?";
+
+        String deleteSql =
+                "DELETE FROM files WHERE file_id = ? AND user_id = ?";
+
+        try (Connection con = getConnection()) {
+
+            con.setAutoCommit(false);
+
+            try {
+                int insertedRows;
+
+                try (PreparedStatement ps =
+                        con.prepareStatement(insertSql)) {
+
+                    ps.setInt(1, fileId);
+                    ps.setInt(2, userId);
+                    insertedRows = ps.executeUpdate();
+                }
+
+                if (insertedRows != 1) {
+                    con.rollback();
+                    return false;
+                }
+
+                int deletedRows;
+
+                try (PreparedStatement ps =
+                        con.prepareStatement(deleteSql)) {
+
+                    ps.setInt(1, fileId);
+                    ps.setInt(2, userId);
+                    deletedRows = ps.executeUpdate();
+                }
+
+                if (deletedRows != 1) {
+                    con.rollback();
+                    return false;
+                }
+
+                con.commit();
+                return true;
+
+            } catch (SQLException e) {
+                con.rollback();
+                throw e;
+            }
+        }
+    }
+
+    // Store file details required for deletion
+    public static class FileDeleteData {
+
+        private final String fileName;
+        private final String filePath;
+
+        public FileDeleteData(String fileName, String filePath) {
+            this.fileName = fileName;
+            this.filePath = filePath;
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public String getFilePath() {
+            return filePath;
+        }
+    }
 
 
 }
