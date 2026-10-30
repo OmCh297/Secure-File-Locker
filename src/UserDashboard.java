@@ -391,6 +391,162 @@ public UserDashboard(int userId) {
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
         // TODO add your handling code here:
+
+    int selectedRow = tblFiles.getSelectedRow();
+
+    if (selectedRow == -1) {
+        JOptionPane.showMessageDialog(
+                this, "Please select a file to delete!");
+        return;
+    }
+
+    if (currentUserId <= 0) {
+        JOptionPane.showMessageDialog(
+                this, "Invalid user session!");
+        return;
+    }
+
+    int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to permanently delete this file?",
+            "Confirm File Deletion",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.WARNING_MESSAGE
+    );
+
+    if (confirm != JOptionPane.YES_OPTION) {
+        return;
+    }
+
+    java.nio.file.Path encryptedPath = null;
+    java.nio.file.Path quarantinePath = null;
+
+    try {
+
+        int modelRow = tblFiles.convertRowIndexToModel(selectedRow);
+
+        int fileId = Integer.parseInt(
+                tblFiles.getModel()
+                        .getValueAt(modelRow, 0).toString()
+        );
+
+        dao.FileDAO fileDAO = new dao.FileDAO();
+
+        // Fetch file details
+        dao.FileDAO.FileDeleteData fileData =
+                fileDAO.getFileForDeletion(fileId, currentUserId);
+
+        if (fileData == null) {
+            JOptionPane.showMessageDialog(
+                    this, "File not found or access denied!");
+            return;
+        }
+
+        encryptedPath = java.nio.file.Paths.get(
+                fileData.getFilePath()
+        ).toAbsolutePath().normalize();
+
+        // Verify that file belongs to application storage
+        java.nio.file.Path storageDirectory =
+                java.nio.file.Paths.get(
+                        System.getProperty("user.home"),
+                        ".securefilelocker",
+                        "storage"
+                ).toRealPath();
+
+        java.nio.file.Path actualFilePath =
+                encryptedPath.toRealPath();
+
+        if (!actualFilePath.startsWith(storageDirectory)
+                || !java.nio.file.Files.isRegularFile(actualFilePath)) {
+
+            JOptionPane.showMessageDialog(
+                    this, "Invalid encrypted file location!");
+            return;
+        }
+
+        // Temporarily move encrypted file before database deletion
+        quarantinePath = actualFilePath.resolveSibling(
+                actualFilePath.getFileName().toString()
+                + ".deleting-" + java.util.UUID.randomUUID()
+        );
+
+        java.nio.file.Files.move(
+                actualFilePath,
+                quarantinePath,
+                java.nio.file.StandardCopyOption.ATOMIC_MOVE
+        );
+
+        // Save history and remove active database record
+        boolean deleted = fileDAO.moveFileToDeleteHistory(
+                fileId, currentUserId
+        );
+
+        if (!deleted) {
+
+            // Restore encrypted file if database operation fails
+            java.nio.file.Files.move(
+                    quarantinePath, actualFilePath
+            );
+
+            JOptionPane.showMessageDialog(
+                    this, "File deletion failed!");
+            return;
+        }
+
+        // Permanently remove encrypted file from application storage
+        try {
+            java.nio.file.Files.deleteIfExists(quarantinePath);
+        } catch (java.io.IOException deleteError) {
+
+            JOptionPane.showMessageDialog(
+                    this,
+                    "File history saved, but encrypted file cleanup failed.\n"
+                    + "Please contact the administrator."
+            );
+        }
+
+        // Remove file from dashboard table
+        ((javax.swing.table.DefaultTableModel)
+                tblFiles.getModel()).removeRow(modelRow);
+
+        JOptionPane.showMessageDialog(
+                this,
+                "File deleted successfully!\n"
+                + "Deletion history has been saved."
+        );
+
+    } catch (Exception e) {
+
+        e.printStackTrace();
+
+        // Restore file if database operation failed
+        if (quarantinePath != null
+                && java.nio.file.Files.exists(quarantinePath)
+                && encryptedPath != null) {
+
+            try {
+                java.nio.file.Files.move(
+                        quarantinePath, encryptedPath
+                );
+            } catch (Exception restoreError) {
+                restoreError.printStackTrace();
+
+                JOptionPane.showMessageDialog(
+                        this,
+                        "File restoration failed. Please check storage folder."
+                );
+            }
+        }
+
+        JOptionPane.showMessageDialog(
+                this,
+                "File deletion failed:\n" + e.getMessage(),
+                "Deletion Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
     }//GEN-LAST:event_btnDeleteActionPerformed
 
 private void loadFiles() {
