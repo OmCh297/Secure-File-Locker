@@ -188,5 +188,66 @@ public class FileDAO {
 
         return fileList;
     }
+    
+    
+    // Fetch encrypted file details for download and decryption
+    public FileDownloadData getFileForDownload(
+            int fileId, int userId) throws SQLException {
+
+        String sql = "SELECT file_name, file_path, iv "
+                + "FROM files "
+                + "WHERE file_id = ? AND user_id = ?";
+
+        try (Connection con = getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setInt(1, fileId);
+            ps.setInt(2, userId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+
+                if (rs.next()) {
+                    return new FileDownloadData(
+                            rs.getString("file_name"),
+                            rs.getString("file_path"),
+                            rs.getBytes("iv")
+                    );
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // Store retrieved file details
+    public static class FileDownloadData {
+
+        private final String fileName;
+        private final String filePath;
+        private final byte[] iv;
+
+        public FileDownloadData(
+                String fileName,
+                String filePath,
+                byte[] iv) {
+
+            this.fileName = fileName;
+            this.filePath = filePath;
+            this.iv = iv;
+        }
+
+        public String getFileName() {
+            return fileName;
+        }
+
+        public String getFilePath() {
+            return filePath;
+        }
+
+        public byte[] getIV() {
+            return iv == null ? null : iv.clone();
+        }
+    }
+
 
 }

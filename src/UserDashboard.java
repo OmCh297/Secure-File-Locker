@@ -249,6 +249,11 @@ public UserDashboard(int userId) {
         );
 
         btnDownload.setText("Download");
+        btnDownload.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnDownloadActionPerformed(evt);
+            }
+        });
 
         btnDecrypt.setText("Decrypt");
 
@@ -569,6 +574,121 @@ if (!saved) {
     }
 
     }//GEN-LAST:event_btnUploadActionPerformed
+
+    private void btnDownloadActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDownloadActionPerformed
+        // TODO add your handling code here:
+        
+
+    // Step 1: Check selected file
+    int selectedRow = tblFiles.getSelectedRow();
+
+    if (selectedRow == -1) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Please select a file to download!"
+        );
+        return;
+    }
+
+    if (currentUserId <= 0) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Invalid user session!"
+        );
+        return;
+    }
+
+    try {
+        // Step 2: Get selected File ID
+        int modelRow = tblFiles.convertRowIndexToModel(selectedRow);
+
+        int fileId = Integer.parseInt(
+                tblFiles.getModel()
+                        .getValueAt(modelRow, 0).toString()
+        );
+
+        // Step 3: Fetch file details from database
+        dao.FileDAO fileDAO = new dao.FileDAO();
+
+        dao.FileDAO.FileDownloadData fileData =
+                fileDAO.getFileForDownload(fileId, currentUserId);
+
+
+        if (fileData == null) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "File not found or access denied!"
+            );
+            return;
+        }
+
+        // Step 4: Get encrypted file details
+        java.nio.file.Path encryptedPath =
+                java.nio.file.Paths.get(fileData.getFilePath());
+
+        byte[] iv = fileData.getIV();
+
+        if (iv == null || iv.length != 12) {
+            throw new Exception("Invalid encryption IV!");
+        }
+
+        // Step 5: Choose download location
+        JFileChooser chooser = new JFileChooser();
+
+        chooser.setDialogTitle("Save Decrypted File");
+
+        chooser.setSelectedFile(
+                new java.io.File(fileData.getFileName())
+        );
+
+        int result = chooser.showSaveDialog(this);
+
+        if (result != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        java.nio.file.Path outputPath =
+                chooser.getSelectedFile().toPath();
+        
+
+        // Step 6: Prevent accidental overwrite
+        if (java.nio.file.Files.exists(outputPath)) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "File already exists! Choose another name."
+            );
+            return;
+        }
+
+        // Step 7: Decrypt encrypted file
+        service.EncryptionService.decryptFile(
+                encryptedPath,
+                outputPath,
+                iv
+        );
+
+        // Step 8: Success message
+        JOptionPane.showMessageDialog(
+                this,
+                "File downloaded and decrypted successfully!\n\n"
+                + "File Name: " + fileData.getFileName()
+                + "\nSaved Location: " + outputPath
+        );
+
+    } catch (Exception e) {
+
+        e.printStackTrace();
+
+        JOptionPane.showMessageDialog(
+                this,
+                "Download/Decryption Failed:\n"
+                + e.getMessage(),
+                "Error",
+                JOptionPane.ERROR_MESSAGE
+        );
+    }
+
+    }//GEN-LAST:event_btnDownloadActionPerformed
 
     /**
      * @param args the command line arguments
