@@ -588,6 +588,7 @@ boolean logSaved = fileDAO.logActivity(
         ((javax.swing.table.DefaultTableModel)
                 tblFiles.getModel()).removeRow(modelRow);
 
+                loadFiles();
         JOptionPane.showMessageDialog(
                 this,
                 "File deleted successfully!\n"
@@ -949,6 +950,7 @@ if (savedFileId > 0) {
             "File uploaded and encrypted successfully"
     );
 }
+loadFiles();
         // Step 7: Show success message
         JOptionPane.showMessageDialog(
             this,
@@ -1070,6 +1072,8 @@ if (savedFileId > 0) {
         "DOWNLOAD",
         "File downloaded and decrypted successfully"
 );
+        
+        loadFiles();
 
         // Step 8: Success message
         JOptionPane.showMessageDialog(
