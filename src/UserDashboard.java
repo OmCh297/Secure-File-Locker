@@ -13,6 +13,11 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.HexFormat;
 import javax.swing.table.DefaultTableModel;
+
+import javax.swing.table.TableRowSorter;
+import javax.swing.RowFilter;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 /**
  *
  * @author DELL
@@ -34,6 +39,26 @@ public UserDashboard(int userId) {
         "Welcome " + session.Session.getFullName()
     );
     loadFiles();
+    
+    txtSearch.getDocument().addDocumentListener(
+    new DocumentListener() {
+
+        @Override
+        public void insertUpdate(DocumentEvent e) {
+            applySearchFilter();
+        }
+
+        @Override
+        public void removeUpdate(DocumentEvent e) {
+            applySearchFilter();
+        }
+
+        @Override
+        public void changedUpdate(DocumentEvent e) {
+            applySearchFilter();
+        }
+    }
+);
 
 }
 
@@ -67,7 +92,6 @@ public UserDashboard(int userId) {
         lblEncrypted = new javax.swing.JLabel();
         jPanel6 = new javax.swing.JPanel();
         btnDownload = new javax.swing.JButton();
-        btnDecrypt = new javax.swing.JButton();
         btnDelete = new javax.swing.JButton();
         btnUpload = new javax.swing.JButton();
         jPanel7 = new javax.swing.JPanel();
@@ -76,6 +100,7 @@ public UserDashboard(int userId) {
         jLabel5 = new javax.swing.JLabel();
         txtSearch = new javax.swing.JTextField();
         jLabel6 = new javax.swing.JLabel();
+        btnRefresh = new javax.swing.JButton();
 
         jTable1.setModel(new javax.swing.table.DefaultTableModel(
             new Object [][] {
@@ -255,8 +280,6 @@ public UserDashboard(int userId) {
             }
         });
 
-        btnDecrypt.setText("Decrypt");
-
         btnDelete.setText("Delete");
         btnDelete.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -277,13 +300,12 @@ public UserDashboard(int userId) {
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel6Layout.createSequentialGroup()
                 .addContainerGap()
-                .addComponent(btnUpload, javax.swing.GroupLayout.PREFERRED_SIZE, 108, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnUpload, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnDownload, javax.swing.GroupLayout.PREFERRED_SIZE, 103, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addComponent(btnDownload, javax.swing.GroupLayout.PREFERRED_SIZE, 126, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnDecrypt, javax.swing.GroupLayout.PREFERRED_SIZE, 82, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 86, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addComponent(btnDelete, javax.swing.GroupLayout.PREFERRED_SIZE, 127, javax.swing.GroupLayout.PREFERRED_SIZE)
+                .addContainerGap())
         );
         jPanel6Layout.setVerticalGroup(
             jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -291,7 +313,6 @@ public UserDashboard(int userId) {
                 .addContainerGap()
                 .addGroup(jPanel6Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(btnDownload)
-                    .addComponent(btnDecrypt)
                     .addComponent(btnDelete)
                     .addComponent(btnUpload))
                 .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
@@ -319,6 +340,13 @@ public UserDashboard(int userId) {
 
         jLabel6.setText("Search");
 
+        btnRefresh.setText("Refresh");
+        btnRefresh.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnRefreshActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout jPanel7Layout = new javax.swing.GroupLayout(jPanel7);
         jPanel7.setLayout(jPanel7Layout);
         jPanel7Layout.setHorizontalGroup(
@@ -328,8 +356,10 @@ public UserDashboard(int userId) {
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
                     .addGroup(jPanel7Layout.createSequentialGroup()
                         .addGap(8, 8, 8)
-                        .addComponent(jLabel5, javax.swing.GroupLayout.PREFERRED_SIZE, 216, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                        .addComponent(jLabel5, javax.swing.GroupLayout.PREFERRED_SIZE, 65, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addGap(43, 43, 43)
+                        .addComponent(btnRefresh)
+                        .addGap(39, 39, 39)
                         .addComponent(jLabel6)
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                         .addComponent(txtSearch))
@@ -343,7 +373,8 @@ public UserDashboard(int userId) {
                 .addGroup(jPanel7Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel5, javax.swing.GroupLayout.DEFAULT_SIZE, 30, Short.MAX_VALUE)
                     .addComponent(txtSearch, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel6))
+                    .addComponent(jLabel6)
+                    .addComponent(btnRefresh))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                 .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 100, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addContainerGap())
@@ -363,8 +394,7 @@ public UserDashboard(int userId) {
                             .addComponent(jPanel2, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
                             .addComponent(jPanel1, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
                         .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
-                .addContainerGap())
+                        .addComponent(jPanel3, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))))
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -387,6 +417,29 @@ public UserDashboard(int userId) {
 
     private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLogoutActionPerformed
         // TODO add your handling code here:
+
+    int confirm = JOptionPane.showConfirmDialog(
+            this,
+            "Are you sure you want to logout?",
+            "Confirm Logout",
+            JOptionPane.YES_NO_OPTION,
+            JOptionPane.QUESTION_MESSAGE
+    );
+
+    if (confirm == JOptionPane.YES_OPTION) {
+
+        // Clear current user ID
+        currentUserId = 0;
+
+        // Open Login Page
+        LoginPage login = new LoginPage();
+        login.setLocationRelativeTo(null);
+        login.setVisible(true);
+
+        // Close User Dashboard
+        this.dispose();
+    }
+
     }//GEN-LAST:event_btnLogoutActionPerformed
 
     private void btnDeleteActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnDeleteActionPerformed
@@ -577,6 +630,13 @@ private void loadFiles() {
         }
 
         tblFiles.setModel(model);
+        
+        TableRowSorter<DefaultTableModel> sorter =
+        new TableRowSorter<>(model);
+
+        tblFiles.setRowSorter(sorter);
+
+        applySearchFilter();
 
         lblTotalFiles.setText(String.valueOf(files.size()));
         lblEncrypted.setText(String.valueOf(files.size()));
@@ -590,6 +650,29 @@ private void loadFiles() {
         );
 
         ex.printStackTrace();
+    }
+}
+
+private void applySearchFilter() {
+
+    String searchText = txtSearch.getText().trim();
+
+    if (tblFiles.getRowSorter() == null) {
+        return;
+    }
+
+    TableRowSorter<?> sorter =
+            (TableRowSorter<?>) tblFiles.getRowSorter();
+
+    if (searchText.isEmpty()) {
+        sorter.setRowFilter(null);
+    } else {
+        sorter.setRowFilter(
+            RowFilter.regexFilter(
+                "(?i)" + java.util.regex.Pattern.quote(searchText),
+                1
+            )
+        );
     }
 }
 
@@ -876,6 +959,26 @@ try {
 
     }//GEN-LAST:event_btnDownloadActionPerformed
 
+    private void btnRefreshActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnRefreshActionPerformed
+        // TODO add your handling code here:
+
+    if (currentUserId <= 0) {
+        JOptionPane.showMessageDialog(
+                this,
+                "Invalid user session!"
+        );
+        return;
+    }
+
+    loadFiles();
+
+    JOptionPane.showMessageDialog(
+            this,
+            "Files refreshed successfully!"
+    );
+
+    }//GEN-LAST:event_btnRefreshActionPerformed
+
     /**
      * @param args the command line arguments
      */
@@ -917,10 +1020,10 @@ try {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
-    private javax.swing.JButton btnDecrypt;
     private javax.swing.JButton btnDelete;
     private javax.swing.JButton btnDownload;
     private javax.swing.JButton btnLogout;
+    private javax.swing.JButton btnRefresh;
     private javax.swing.JButton btnUpload;
     private javax.swing.JLabel jLabel1;
     private javax.swing.JLabel jLabel3;
