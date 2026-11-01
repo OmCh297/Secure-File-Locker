@@ -74,6 +74,28 @@ public class FileDAO {
 
         return false;
     }
+    
+    // Get the latest uploaded file ID of a user
+public int getLatestFileId(int userId) throws SQLException {
+
+    String sql = "SELECT file_id FROM files "
+            + "WHERE user_id = ? "
+            + "ORDER BY file_id DESC LIMIT 1";
+
+    try (Connection con = getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+
+        ps.setInt(1, userId);
+
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                return rs.getInt("file_id");
+            }
+        }
+    }
+
+    return -1;
+}
 
     // Display files belonging to a particular user
     public void getFilesByUserId(int userId) {
@@ -355,6 +377,40 @@ public class FileDAO {
             return filePath;
         }
     }
+    
+    // Save user activity in activity_logs table
+public boolean logActivity(
+        int userId,
+        Integer fileId,
+        String actionType,
+        String details) {
+
+    String sql = "INSERT INTO activity_logs "
+            + "(user_id, file_id, action_type, details) "
+            + "VALUES (?, ?, ?, ?)";
+
+    try (Connection con = getConnection();
+         PreparedStatement ps = con.prepareStatement(sql)) {
+
+        ps.setInt(1, userId);
+
+        if (fileId == null) {
+            ps.setNull(2, java.sql.Types.INTEGER);
+        } else {
+            ps.setInt(2, fileId);
+        }
+
+        ps.setString(3, actionType);
+        ps.setString(4, details);
+
+        return ps.executeUpdate() > 0;
+
+    } catch (SQLException e) {
+        System.out.println("Activity log error: "
+                + e.getMessage());
+        return false;
+    }
+}
 
 
 }

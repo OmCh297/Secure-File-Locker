@@ -18,6 +18,10 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.RowFilter;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+
+import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 /**
  *
  * @author DELL
@@ -534,6 +538,27 @@ public UserDashboard(int userId) {
         boolean deleted = fileDAO.moveFileToDeleteHistory(
                 fileId, currentUserId
         );
+        
+        if (!deleted) {
+
+    // Restore encrypted file if database operation fails
+    java.nio.file.Files.move(
+            quarantinePath, actualFilePath
+    );
+
+    JOptionPane.showMessageDialog(
+            this, "File deletion failed!"
+    );
+    return;
+}
+
+// Log DELETE activity
+boolean logSaved = fileDAO.logActivity(
+        currentUserId,
+        null,
+        "DELETE","File ID:" + fileId + 
+        "-Encrypted file permanently deleted successfully"
+);
 
         if (!deleted) {
 
@@ -608,7 +633,7 @@ private void loadFiles() {
             "File ID",
             "File Name",
             "Type",
-            "Size (Bytes)",
+            "Size",
             "Upload Date"
         },
         0
@@ -626,10 +651,38 @@ private void loadFiles() {
                 fileDAO.getFileRowsByUserId(currentUserId);
 
         for (Object[] file : files) {
-            model.addRow(file);
-        }
 
+    Object[] displayFile = file.clone();
+
+    // Format file size
+    if (displayFile.length > 3) {
+        displayFile[3] =
+                formatFileSize(displayFile[3]);
+    }
+
+    // Format upload date
+    if (displayFile.length > 4) {
+        displayFile[4] =
+                formatUploadDate(displayFile[4]);
+    }
+
+    model.addRow(displayFile);
+}
         tblFiles.setModel(model);
+        
+        // Set JTable column widths
+tblFiles.setAutoResizeMode(
+        javax.swing.JTable.AUTO_RESIZE_OFF
+);
+
+javax.swing.table.TableColumnModel columns =
+        tblFiles.getColumnModel();
+
+columns.getColumn(0).setPreferredWidth(60);   // File ID
+columns.getColumn(1).setPreferredWidth(140);  // File Name
+columns.getColumn(2).setPreferredWidth(65);   // Type
+columns.getColumn(3).setPreferredWidth(100);  // Size
+columns.getColumn(4).setPreferredWidth(180);  // Upload Date
         
         TableRowSorter<DefaultTableModel> sorter =
         new TableRowSorter<>(model);
@@ -651,6 +704,71 @@ private void loadFiles() {
 
         ex.printStackTrace();
     }
+}
+
+private String formatFileSize(Object sizeValue) {
+
+    if (sizeValue == null) {
+        return "0 B";
+    }
+
+    double bytes = Double.parseDouble(
+            sizeValue.toString()
+    );
+
+    if (bytes < 1024) {
+        return bytes + " B";
+    }
+
+    double kb = bytes / 1024;
+
+    if (kb < 1024) {
+        return new DecimalFormat("#.##").format(kb)
+                + " KB";
+    }
+
+    double mb = kb / 1024;
+
+    if (mb < 1024) {
+        return new DecimalFormat("#.##").format(mb)
+                + " MB";
+    }
+
+    double gb = mb / 1024;
+
+    return new DecimalFormat("#.##").format(gb)
+            + " GB";
+}
+
+private String formatUploadDate(Object dateValue) {
+
+    if (dateValue == null) {
+        return "";
+    }
+
+    Date date;
+
+    if (dateValue instanceof Date) {
+        date = (Date) dateValue;
+    } else {
+        String dateText = dateValue.toString();
+
+        try {
+            date = java.sql.Timestamp.valueOf(dateText);
+        } catch (IllegalArgumentException e) {
+
+            try {
+                date = java.sql.Date.valueOf(dateText);
+            } catch (IllegalArgumentException ex) {
+                return dateText;
+            }
+        }
+    }
+
+    SimpleDateFormat formatter =
+            new SimpleDateFormat("dd MMM yyyy, hh:mm a");
+
+    return formatter.format(date);
 }
 
 private void applySearchFilter() {
@@ -821,6 +939,16 @@ try {
     );
 }
 
+int savedFileId = fileDAO.getLatestFileId(currentUserId);
+
+if (savedFileId > 0) {
+    fileDAO.logActivity(
+            currentUserId,
+            savedFileId,
+            "UPLOAD",
+            "File uploaded and encrypted successfully"
+    );
+}
         // Step 7: Show success message
         JOptionPane.showMessageDialog(
             this,
@@ -935,6 +1063,13 @@ try {
                 outputPath,
                 iv
         );
+        
+        fileDAO.logActivity(
+        currentUserId,
+        fileId,
+        "DOWNLOAD",
+        "File downloaded and decrypted successfully"
+);
 
         // Step 8: Success message
         JOptionPane.showMessageDialog(
